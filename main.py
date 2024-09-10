@@ -11,7 +11,7 @@ from ossapi import Ossapi
 from command.ping import Ping
 from command.task_test import TaskTest
 from config import CAPTAIN_ROLE_ID, CHANNEL_ID, DISCORD_TOKEN, MY_GUILD_ID, MY_GUILD_ID_OBJECT, OSUAPI_ID, OSUAPI_SECRET, OWNER_USERID, PLAYER_ROLE_ID
-from data.captain import Captain
+from bot_struct.captain import Captain
 
 
 # intents是要求機器人的權限

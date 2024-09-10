@@ -3,6 +3,7 @@ from discord.ext import tasks, commands
 from discord import TextChannel, app_commands
 import discord.state
 import discord.types
+import asyncio
 
 from config import MY_GUILD_ID_OBJECT
     
@@ -34,10 +35,12 @@ class TaskTest(commands.Cog):
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
     async def embeddedtest(self, interaction: discord.Interaction):
         id = 14817468
-        embed = discord.Embed(title="Bidding (stllok)", url=f"https://osu.ppy.sh/users/{id}", description="In-Queue: 42\tBought-In: 2\tSold: 1")
+        embed = discord.Embed(title="Bidding (stllok)", url=f"https://osu.ppy.sh/users/{id}", description="In-Queue: 42\tUnsold: 2\tSold: 1")
         embed.add_field(name="Expiry in", value="<t:1725970740:R>")
         embed.add_field(name="Price", value=10)
         embed.add_field(name="Qualify Seed", value="WIP")
+        embed.add_field(name="ETX Rating", value=6.99)
+        embed.add_field(name="Skill Issue Rating", value=7000)
         embed.add_field(name="Current Caller", value=None)
         embed.set_image(url=f"https://a.ppy.sh/{id}")
         embed.set_footer(text="Use below button for **Bid Increment**")
@@ -69,6 +72,8 @@ class TaskTest(commands.Cog):
     async def before_task(self):
         self.counter = 0
         await self.interact_channel.send("Starting task...")
+        
+        await asyncio.sleep(5)
         await self.bot.wait_until_ready()
         
     @run_task.after_loop

@@ -1,8 +1,9 @@
+from optparse import Option
 import time
 
 from discord import Member
 
-from data.captain import Captain
+from bot_struct.captain import Captain
 from config import (
     AFTER_BID_WAIT,
     DEFAULT_PRICE,
@@ -11,29 +12,30 @@ from config import (
 
 
 class Item:
-    uid: int
+    player_id: int
     price: int
-    owner: Captain | None
     expiry: int
-    owner: Member
+    owner: Captain | None
     
-    def __init__(self, uid: int, owner: Member) -> None:
-        self.uid = uid
+    def __init__(self, uid: int) -> None:
+        self.player_id = uid
         self.price = DEFAULT_PRICE
         self.owner = None
+        
         self.expiry = int(time.time()) + FIRST_TIME_WAIT
-        self.owner = owner
 
     def set_owner(self, price: int, owner: Captain):
         self.price = price
-        self.expiry = int(time.time()) + AFTER_BID_WAIT
         self.owner = owner
+        
+        # Update
+        self.expiry = int(time.time()) + AFTER_BID_WAIT
 
-    def is_pass(self) -> bool:
+    def is_unsold(self) -> bool:
         return self.owner is None
 
     def is_expiry(self) -> bool:
         return int(time.time()) > self.expiry
 
-    def print_msg(self):
+    def generate_embed(self):
         pass

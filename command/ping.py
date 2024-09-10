@@ -2,7 +2,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot import NRVCBot
 from config import MY_GUILD_ID_OBJECT
 
 
@@ -10,7 +9,7 @@ from config import MY_GUILD_ID_OBJECT
 class Ping(commands.Cog):
     bot: commands.Bot
 
-    def __init__(self, bot: NRVCBot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     # 前綴指令
