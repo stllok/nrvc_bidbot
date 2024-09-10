@@ -94,7 +94,7 @@ class Auction(commands.Cog):
         self.item.set_owner(MINIMUM_CALL_PRICE, captain)
         await interaction.response.send_message("Success", ephemeral=True)
 
-    @tasks.loop(seconds=1)
+    @tasks.loop(seconds=0.5)
     async def tick(self):
         if self.item is None or self.pause:
             return
@@ -110,6 +110,8 @@ class Auction(commands.Cog):
             self.item.owner.balance -= self.item.price
 
         self.item = self.players.pop(0)
+        
+        
         
     @tick.before_loop
     async def before_task(self):

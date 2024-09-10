@@ -1,8 +1,11 @@
 import discord
 from discord.ext import tasks, commands
 from discord import TextChannel, app_commands
+import discord.state
+import discord.types
 
 from config import MY_GUILD_ID_OBJECT
+    
 
 # 定義名為 TaskTest 的 Cog
 class TaskTest(commands.Cog):
@@ -26,6 +29,35 @@ class TaskTest(commands.Cog):
         # 回覆使用者的訊息
         await interaction.response.send_message(f"Preparing task")
         await self.run_task.start()
+
+    @app_commands.command(name = "embeddedtest", description = "Test embedded")
+    @app_commands.guilds(MY_GUILD_ID_OBJECT)
+    async def embeddedtest(self, interaction: discord.Interaction):
+        id = 14817468
+        embed = discord.Embed(title="Bidding (stllok)", url=f"https://osu.ppy.sh/users/{id}", description="In-Queue: 42\tBought-In: 2\tSold: 1")
+        embed.add_field(name="Expiry in", value="<t:1725970740:R>")
+        embed.add_field(name="Price", value=10)
+        embed.add_field(name="Qualify Seed", value="WIP")
+        embed.add_field(name="Current Caller", value=None)
+        embed.set_image(url=f"https://a.ppy.sh/{id}")
+        embed.set_footer(text="Use below button for **Bid Increment**")
+        
+        view = discord.ui.View()
+        
+        # button = discord.ui.Button(label="Bid")
+        
+        # # async def g(i: discord.Interaction):
+        # #     await i.response.send_message("HELLO!")
+        
+        # button.callback = g
+        view.add_item(item=discord.ui.Button(label="Minimum (+10)"))
+        view.add_item(item=discord.ui.Button(label="+50"))
+        view.add_item(item=discord.ui.Button(label="+100"))
+        view.add_item(item=discord.ui.Button(label="+250"))
+        view.add_item(item=discord.ui.Button(label="+500"))
+        view.add_item(item=discord.ui.Button(label="Custom"))
+        
+        await interaction.response.send_message(view=view, embed=embed)
 
     @tasks.loop(seconds=1, count=5)
     async def run_task(self):
