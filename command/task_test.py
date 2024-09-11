@@ -6,7 +6,6 @@ import discord.types
 import asyncio
 
 from config import MY_GUILD_ID_OBJECT
-    
 
 # 定義名為 TaskTest 的 Cog
 class TaskTest(commands.Cog):
@@ -47,18 +46,9 @@ class TaskTest(commands.Cog):
         
         view = discord.ui.View()
         
-        # button = discord.ui.Button(label="Bid")
+        button = discord.ui.Button(label="Bid")
         
-        # # async def g(i: discord.Interaction):
-        # #     await i.response.send_message("HELLO!")
-        
-        # button.callback = g
-        view.add_item(item=discord.ui.Button(label="Minimum (+10)"))
-        view.add_item(item=discord.ui.Button(label="+50"))
-        view.add_item(item=discord.ui.Button(label="+100"))
-        view.add_item(item=discord.ui.Button(label="+250"))
-        view.add_item(item=discord.ui.Button(label="+500"))
-        view.add_item(item=discord.ui.Button(label="Custom"))
+        button.callback = lambda i: i.response.send_message("hello")
         
         await interaction.response.send_message(view=view, embed=embed)
 
