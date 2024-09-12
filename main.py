@@ -15,7 +15,6 @@ from config import (
     OSUAPI_ID,
     OSUAPI_SECRET,
     OWNER_USERID,
-    PLAYER_ROLE_ID,
 )
 from bot_struct.captain import Captain
 
@@ -41,16 +40,16 @@ async def on_ready():
             ),
         )
     )
-    players = list(
-        map(
-            Captain,
-            filter(
-                lambda member: member.get_role(PLAYER_ROLE_ID) is not None,
-                (bot.get_channel(CHANNEL_ID)).members,
-            ),
-        )
-    )
-    print(f"Initialize captain and member complete!")
+    # players = list(
+    #     map(
+    #         Captain,
+    #         filter(
+    #             lambda member: member.get_role(PLAYER_ROLE_ID) is not None,
+    #             (bot.get_channel(CHANNEL_ID)).members,
+    #         ),
+    #     )
+    # )
+    print("Initialize captain and member complete!")
 
     for cog in COGS:
         await bot.add_cog(cog)

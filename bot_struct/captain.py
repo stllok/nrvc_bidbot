@@ -1,6 +1,6 @@
 """Module to define the struct of Captain"""
 
-from discord import Member
+from discord import Embed, Member
 from config import DEFAULT_BALANCE, DEFAULT_PRICE, TEAM_SIZE
 
 
@@ -36,3 +36,18 @@ class Captain:
         Team size - self - bought members
         """
         return TEAM_SIZE - 1 - len(self.member)
+
+    def gen_embed(self) -> Embed:
+        """
+        Generate embed object of Captain
+        """
+        embed = Embed(
+            title="Self statistic",
+            description=f"Balance: {self.balance} members: {len(self.member)}/{TEAM_SIZE - 1}",
+        )
+
+        embed.add_field(name="Members", inline=False, value=",".join(self.member))
+        embed.add_field(
+            name="Usable balance", inline=True, value=self.available_balance()
+        )
+        return embed

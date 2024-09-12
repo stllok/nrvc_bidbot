@@ -1,4 +1,5 @@
-import random, asyncio
+import random
+import asyncio
 import time
 import discord
 from discord import Member, TextChannel, User, app_commands
@@ -75,6 +76,14 @@ class Auction(commands.Cog):
             button.callback = button_settings[1]
             view.add_item(item=button)
 
+        modal_custom_bid = CustomBidMoral()
+        modal_custom_bid.set_auction(self)
+
+        btn_custom_bid = discord.ui.Button(label="Custom Bid")
+        btn_custom_bid.callback = lambda interact: interact.response.send_modal(
+            modal_custom_bid
+        )
+
         await self.interactive_channel.send(view=view, embed=embed)
 
     async def bid_action(self, interaction: discord.Interaction, amount: int):
@@ -122,8 +131,10 @@ class Auction(commands.Cog):
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
     async def swap_unsold_player(self, interaction: discord.Interaction):
         if self.unsold_players.__len__() == 0:
-            return await interaction.response.send_message("Unsold list is empty!! nothing change", ephemeral=True)
-        
+            return await interaction.response.send_message(
+                "Unsold list is empty!! nothing change", ephemeral=True
+            )
+
         self.players = self.unsold_players
         self.unsold_players = []
         await interaction.response.send_message("Swapped list", ephemeral=True)
@@ -145,13 +156,62 @@ class Auction(commands.Cog):
     # EPHEMERAL FUNCTION  #
     #######################
 
+    @app_commands.command(name="statme", description="Get your status")
+    @app_commands.guilds(MY_GUILD_ID_OBJECT)
+    async def statme(self, interaction: discord.Interaction):
+        captain = self.get_captains(interaction.user)
+
+        if captain is None:
+            return await interaction.response.send_message(
+                "You are not captain", ephemeral=True
+            )
+
+        await interaction.response.send_message(
+            embed=captain.gen_embed(), ephemeral=True
+        )
+
     #######################
     # ADMIN ONLY FUNCTION #
     #######################
-    @app_commands.command(name="cancel", description="Start the auction")
+    @app_commands.command(name="cancel", description="Cancel current auction")
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
+    @commands.has_permissions(administrator=True)
     async def cancel(self, interaction: discord.Interaction):
         self.on_bidding.stop()
+
+    @app_commands.command(
+        name="modify_balance", description="Modify specific captain's balance"
+    )
+    @app_commands.guilds(MY_GUILD_ID_OBJECT)
+    @commands.has_permissions(administrator=True)
+    async def modify_balance(
+        self, interaction: discord.Interaction, req_captain: Member, amount: int
+    ):
+        captain = self.get_captains(req_captain)
+
+        if captain is None:
+            return await interaction.response.send_message(
+                "You are not captain", ephemeral=True
+            )
+
+        captain.balance = amount
+        await interaction.response.send_message(
+            f"Adjusted {captain.owner} balance to {amount}", ephemeral=True
+        )
+
+    @app_commands.command(name="captains-status", description="Get all captains status")
+    @app_commands.guilds(MY_GUILD_ID_OBJECT)
+    @commands.has_permissions(administrator=True)
+    async def captains_status(self, interaction: discord.Interaction):
+        await interaction.response.send_message(
+            content="\n".join(
+                map(
+                    lambda captain: f"{captain.owner} (${captain.balance}): {','.join(captain.member)}",
+                    self.captains,
+                )
+            ),
+            ephemeral=True,
+        )
 
     #######################
     #   BACKGROUND TASK   #
@@ -195,3 +255,21 @@ class Auction(commands.Cog):
     async def post_bidding(self):
         # Status reset
         self.item = None
+
+
+class CustomBidMoral(discord.ui.Modal, title="Custom Bid Form"):
+    auction: Auction
+    amount = discord.ui.TextInput(
+        label="Amount", placeholder=f"Enter your bid ({MINIMUM_CALL_PRICE} up)"
+    )
+
+    async def set_auction(self, auction: Auction) -> None:
+        self.auction = auction
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        try:
+            self.auction.bid_action(interaction, int(self.amount))
+        except ValueError:
+            await interaction.response.send_message(
+                "Invalid bid amount", ephemeral=True
+            )
