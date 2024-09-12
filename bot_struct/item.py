@@ -1,8 +1,4 @@
-from optparse import Option
 import time
-
-from discord import Member
-
 from bot_struct.captain import Captain
 from config import (
     AFTER_BID_WAIT,

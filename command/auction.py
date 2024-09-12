@@ -1,4 +1,3 @@
-from optparse import Option
 import random, asyncio
 import time
 import discord
@@ -21,8 +20,6 @@ class Auction(commands.Cog):
     item: Item | None
     # Bidding Channel
     interactive_channel: TextChannel | None
-    # Timestamp based pause
-    pause_timestamp = Option[int]
 
     def __init__(self, bot: commands.Bot, players: list[Item], captains: list[Captain]):
         self.bot = bot
@@ -32,7 +29,6 @@ class Auction(commands.Cog):
         self.unsold_players = []
         # Status
         self.item = None
-        self.pause_timestamp = None
         self.interactive_channel = None
 
     def random_pop(self) -> Item | None:
@@ -52,7 +48,7 @@ class Auction(commands.Cog):
         embed = discord.Embed(
             title="Bidding (stllok)",
             url=f"https://osu.ppy.sh/users/{self.item.player_id}",
-            description=f"In-Queue: {self.players.__len__()}\tUnsold: {self.unsold_players.__len__()}",
+            description=f"In-Queue: {len(self.players)}\tUnsold: {len(self.unsold_players)}",
         )
         embed.add_field(name="Expiry in", value=f"<t:{self.item.expiry}:R>")
         embed.add_field(name="Price", value=self.item.price)
@@ -76,7 +72,7 @@ class Auction(commands.Cog):
         view = discord.ui.View()
         for button_settings in buttons_settings:
             button = discord.ui.Button(label=button_settings[0])
-            button.callback = button[1]
+            button.callback = button_settings[1]
             view.add_item(item=button)
 
         await self.interactive_channel.send(view=view, embed=embed)
@@ -119,8 +115,8 @@ class Auction(commands.Cog):
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
     async def start(self, interaction: discord.Interaction):
         self.interactive_channel = interaction.channel
+        await interaction.response.send_message("Starting auction")
         self.on_bidding.start()
-        await interaction.response.send_message("Bidding started")
 
     @app_commands.command(name="swap-unsold-player", description="Start the auction")
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
@@ -152,20 +148,10 @@ class Auction(commands.Cog):
     #######################
     # ADMIN ONLY FUNCTION #
     #######################
-    @app_commands.command(name="pause", description="Start the auction")
+    @app_commands.command(name="cancel", description="Start the auction")
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
-    async def pause(self, interaction: discord.Interaction):
-        raise Exception("WIP")
-
-    @app_commands.command(name="stop", description="Start the auction")
-    @app_commands.guilds(MY_GUILD_ID_OBJECT)
-    async def stop(self, interaction: discord.Interaction):
-        raise Exception("WIP")
-
-    @app_commands.command(name="resume", description="Start the auction")
-    @app_commands.guilds(MY_GUILD_ID_OBJECT)
-    async def resume(self, interaction: discord.Interaction):
-        raise Exception("WIP")
+    async def cancel(self, interaction: discord.Interaction):
+        self.on_bidding.stop()
 
     #######################
     #   BACKGROUND TASK   #
@@ -174,7 +160,6 @@ class Auction(commands.Cog):
     async def on_bidding(self):
         if (
             self.item is None  # Item not exists
-            or self.pause_timestamp is not None  # Paused
             or not self.item.is_expiry()  # Item not expiry yet
         ):
             return
