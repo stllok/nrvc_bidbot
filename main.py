@@ -5,16 +5,19 @@ from discord.ext import commands
 # 導入commands指令模組
 from ossapi import Ossapi
 
+from bot_struct.item import Item
+from command.auction import Auction
 from command.ping import Ping
 from command.task_test import TaskTest
 from config import (
     CAPTAIN_ROLE_ID,
     CHANNEL_ID,
-    DISCORD_TOKEN,
+    DISCORD_TOKEN,MY_GUILD_ID,
     MY_GUILD_ID_OBJECT,
     OSUAPI_ID,
     OSUAPI_SECRET,
     OWNER_USERID,
+    PLAYERS,
 )
 from bot_struct.captain import Captain
 
@@ -25,8 +28,9 @@ intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="%", intents=intents)
 osuapi = Ossapi(OSUAPI_ID, OSUAPI_SECRET)
 
-COGS = [Ping(bot), TaskTest(bot)]
 
+# COGS = [Ping(bot), TaskTest(bot)]
+COGS = []
 
 # 當機器人完成啟動
 @bot.event
@@ -36,25 +40,31 @@ async def on_ready():
             Captain,
             filter(
                 lambda member: member.get_role(CAPTAIN_ROLE_ID) is not None,
-                (bot.get_channel(CHANNEL_ID)).members,
+                (bot.get_guild(MY_GUILD_ID)).members,
             ),
         )
     )
-    # players = list(
-    #     map(
-    #         Captain,
-    #         filter(
-    #             lambda member: member.get_role(PLAYER_ROLE_ID) is not None,
-    #             (bot.get_channel(CHANNEL_ID)).members,
-    #         ),
-    #     )
-    # )
+    players = list(
+        map(
+            lambda player: Item(
+                player["player_id"],
+                player["sip"],
+                player["etx"],
+                player["seed"],
+                player["name"],
+            ),
+            PLAYERS,
+        )
+    )
     print("Initialize captain and member complete!")
+    print(f"Captains: {captains}")
+    print(f"Players: {players}")
 
+    COGS.append(Auction(bot, players, captains))
     for cog in COGS:
         await bot.add_cog(cog)
     print(f"載入 {len(await bot.tree.sync(guild=MY_GUILD_ID_OBJECT))} 個斜線指令")
-    print(f"目前登入身份 --> {bot.user}")
+    # print(f"目前登入身份 --> {bot.user}")
 
 
 @bot.command()

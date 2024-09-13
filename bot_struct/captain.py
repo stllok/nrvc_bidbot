@@ -51,3 +51,6 @@ class Captain:
             name="Usable balance", inline=True, value=self.available_balance()
         )
         return embed
+
+    def __str__(self) -> str:
+        return f"{self.owner.name} ({self.balance})"

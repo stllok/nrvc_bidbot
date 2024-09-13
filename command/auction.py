@@ -46,34 +46,27 @@ class Auction(commands.Cog):
         )
 
     async def broadcast_embed(self):
-        embed = discord.Embed(
-            title="Bidding (stllok)",
-            url=f"https://osu.ppy.sh/users/{self.item.player_id}",
-            description=f"In-Queue: {len(self.players)}\tUnsold: {len(self.unsold_players)}",
-        )
-        embed.add_field(name="Expiry in", value=f"<t:{self.item.expiry}:R>")
-        embed.add_field(name="Price", value=self.item.price)
-        embed.add_field(name="Qualify Seed", value="WIP")
-        embed.add_field(name="ETX Rating", value="WIP")
-        embed.add_field(name="Skill Issue Rating", value="WIP")
-        embed.add_field(name="Current Caller", value=self.item.owner)
-        embed.set_image(url=f"https://a.ppy.sh/{self.item.player_id}")
-        embed.set_footer(
-            text="Use `/bid` or `/bid-min` or below button shortcut to call price!"
-        )
+        if self.item is None:
+            print("NO ITEM TO BROADCAST!!!")
+            return
+
+        embed = self.item.generate_embed()
+        # embed.description = (
+        #     f"In-Queue: {len(self.players)}\tUnsold: {len(self.unsold_players)}",
+        # )
 
         buttons_settings = [
-            [f"Minimum (+{MINIMUM_CALL_PRICE})", self.bid_min],
-            ["+50", lambda interact: self.bid(interact, 50)],
-            ["+100", lambda interact: self.bid(interact, 100)],
-            ["+250", lambda interact: self.bid(interact, 250)],
-            ["+500", lambda interact: self.bid(interact, 500)],
+            [f"Minimum (+{MINIMUM_CALL_PRICE})", lambda interaction: self.bid_action(interaction, MINIMUM_CALL_PRICE + self.item.price)],
+            ["+50", lambda interact: self.bid_action(interact, 50 + self.item.price)],
+            ["+100", lambda interact: self.bid_action(interact, 100 + self.item.price)],
+            ["+250", lambda interact: self.bid_action(interact, 250 + self.item.price)],
+            ["+500", lambda interact: self.bid_action(interact, 500 + self.item.price)],
         ]
 
         view = discord.ui.View()
-        for button_settings in buttons_settings:
-            button = discord.ui.Button(label=button_settings[0])
-            button.callback = button_settings[1]
+        for button_setting in buttons_settings:
+            button = discord.ui.Button(label=button_setting[0])
+            button.callback = button_setting[1]
             view.add_item(item=button)
 
         modal_custom_bid = CustomBidMoral()
@@ -83,6 +76,8 @@ class Auction(commands.Cog):
         btn_custom_bid.callback = lambda interact: interact.response.send_modal(
             modal_custom_bid
         )
+
+        view.add_item(item=btn_custom_bid)
 
         await self.interactive_channel.send(view=view, embed=embed)
 
@@ -112,10 +107,10 @@ class Auction(commands.Cog):
                     condition[1], ephemeral=True
                 )
 
-        self.interactive_channel.send(
+        await self.interactive_channel.send(
             f"{interaction.user.name} has called {amount}! ({self.item.price} => {amount})"
         )
-        self.item.set_owner(MINIMUM_CALL_PRICE, captain)
+        self.item.set_owner(amount, captain)
         await self.broadcast_embed()
 
         await interaction.response.send_message("Success", ephemeral=True)
@@ -145,7 +140,7 @@ class Auction(commands.Cog):
     )
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
     async def bid_min(self, interaction: discord.Interaction):
-        await self.bid_action(interaction, MINIMUM_CALL_PRICE)
+        await self.bid_action(interaction, MINIMUM_CALL_PRICE + self.item.price)
 
     @app_commands.command(name="bid", description="Bid with the specific amount")
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
@@ -201,7 +196,6 @@ class Auction(commands.Cog):
 
     @app_commands.command(name="captains-status", description="Get all captains status")
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
-    @commands.has_permissions(administrator=True)
     async def captains_status(self, interaction: discord.Interaction):
         await interaction.response.send_message(
             content="\n".join(
@@ -210,6 +204,18 @@ class Auction(commands.Cog):
                     self.captains,
                 )
             ),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="bid-status", description="Get all captains status")
+    @app_commands.guilds(MY_GUILD_ID_OBJECT)
+    @commands.has_permissions(administrator=True)
+    async def bid_status(self, interaction: discord.Interaction):
+        await interaction.response.send_message(
+            f"""
+            On queue({len(self.players)}): {", ".join(map(lambda player: player.player_name ,self.players))}
+            Unsold({len(self.unsold_players)}): {", ".join(map(lambda player: player.player_name ,self.unsold_players))}
+            """,
             ephemeral=True,
         )
 
@@ -245,10 +251,12 @@ class Auction(commands.Cog):
         else:
             self.item = item
 
-        self.interactive_channel.send(
+        await self.interactive_channel.send(
             f"The next auction will be started in <t:{int(time.time()) + BEFORE_BID_START_WAIT}:R>"
         )
         await asyncio.sleep(BEFORE_BID_START_WAIT)
+        self.item.init_expiry()
+        await self.broadcast_embed()
         await self.bot.wait_until_ready()
 
     @on_bidding.after_loop
@@ -263,12 +271,12 @@ class CustomBidMoral(discord.ui.Modal, title="Custom Bid Form"):
         label="Amount", placeholder=f"Enter your bid ({MINIMUM_CALL_PRICE} up)"
     )
 
-    async def set_auction(self, auction: Auction) -> None:
+    def set_auction(self, auction: Auction) -> None:
         self.auction = auction
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         try:
-            self.auction.bid_action(interaction, int(self.amount))
+            await self.auction.bid_action(interaction, int(self.amount.value))
         except ValueError:
             await interaction.response.send_message(
                 "Invalid bid amount", ephemeral=True
