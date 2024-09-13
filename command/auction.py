@@ -52,11 +52,16 @@ class Auction(commands.Cog):
 
         embed = self.item.generate_embed()
         # embed.description = (
-        #     f"In-Queue: {len(self.players)}\tUnsold: {len(self.unsold_players)}",
+        #     f"In-Queue: {len(self.players)}\tUnsold: {len(self.unsold_players)}"
         # )
 
         buttons_settings = [
-            [f"Minimum (+{MINIMUM_CALL_PRICE})", lambda interaction: self.bid_action(interaction, MINIMUM_CALL_PRICE + self.item.price)],
+            [
+                f"Minimum (+{MINIMUM_CALL_PRICE})",
+                lambda interaction: self.bid_action(
+                    interaction, MINIMUM_CALL_PRICE + self.item.price
+                ),
+            ],
             ["+50", lambda interact: self.bid_action(interact, 50 + self.item.price)],
             ["+100", lambda interact: self.bid_action(interact, 100 + self.item.price)],
             ["+250", lambda interact: self.bid_action(interact, 250 + self.item.price)],
