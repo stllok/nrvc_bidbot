@@ -4,7 +4,6 @@ from discord import Embed
 from bot_struct.captain import Captain
 from config import (
     AFTER_BID_WAIT,
-    DEFAULT_PRICE,
     FIRST_TIME_WAIT,
 )
 
@@ -29,7 +28,7 @@ class Item:
         self.seed = seed
         self.player_name = name
 
-        self.price = DEFAULT_PRICE
+        self.price = 0
         self.owner = None
 
     def set_owner(self, price: int, owner: Captain):
@@ -49,18 +48,18 @@ class Item:
 
     def generate_embed(self) -> Embed:
         embed = Embed(
-            title=f"Bidding ({self.player_name})",
+            title=f"🪪Bidding ({self.player_name})",
             url=f"https://osu.ppy.sh/users/{self.player_id}",
         )
-        embed.add_field(name="Expiry in", value=f"<t:{self.expiry}:R>")
-        embed.add_field(name="Price", value=self.price)
-        embed.add_field(name="Qualify Seed", value=self.seed)
-        embed.add_field(name="ETX Rating", value=self.etx)
-        embed.add_field(name="Skill Issue Rating", value=self.sip)
-        embed.add_field(name="Current Caller", value=self.owner.owner.name if self.owner is not None else None)
+        embed.add_field(name="🕒Expiry in", value=f"<t:{self.expiry}:R>")
+        embed.add_field(name="💵Price", value=self.price)
+        embed.add_field(name="📃Qualify Seed", value=self.seed)
+        embed.add_field(name="📊ETX Rating", value=self.etx)
+        embed.add_field(name="📊Skill Issue Rating", value=self.sip)
+        embed.add_field(name="🙋‍♂️Current Caller", value=self.owner.owner.name if self.owner is not None else None)
         embed.set_image(url=f"https://a.ppy.sh/{self.player_id}")
         embed.set_footer(
-            text="Use `/bid` or `/bid-min` or below button shortcut to call price!"
+            text="👉Use `/bid` or `/bid-min` or below button shortcut to call price!"
         )
         return embed
 

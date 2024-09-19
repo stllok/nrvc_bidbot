@@ -1,7 +1,7 @@
 """Module to define the struct of Captain"""
 
 from discord import Embed, Member
-from config import DEFAULT_BALANCE, DEFAULT_PRICE, TEAM_SIZE
+from config import DEFAULT_BALANCE, DEFAULT_PRICE, PLAYERS, TEAM_SIZE
 
 
 class Captain:
@@ -16,10 +16,18 @@ class Captain:
         self.balance = DEFAULT_BALANCE
         self.owner = owner
 
+    def member_to_string(self) -> list[str]:
+        return list(
+            map(
+                lambda p: f"`{p["name"]}`",
+                filter(lambda p: p["player_id"] in self.member, PLAYERS),
+            )
+        )
+
     def available_balance(self) -> int:
         """Function to get current usable balabce per captain"""
-        # 限制叫價唔可以 > 剩餘位置 * 底價
-        return self.balance - self.remain_slot() * DEFAULT_PRICE
+        # 1600, 1700, 1800, 1900, 2000 for 0, 1, 2, 3, 4, 5 players in captain's team
+        return self.balance - (self.remain_slot() + 1) * DEFAULT_PRICE 
 
     def is_full(self) -> bool:
         """
@@ -43,12 +51,12 @@ class Captain:
         """
         embed = Embed(
             title="Self statistic",
-            description=f"Balance: {self.balance} members: {len(self.member)}/{TEAM_SIZE - 1}",
+            description=f"💰Balance: {self.balance} 🏃Members: {len(self.member)}/{TEAM_SIZE - 1}",
         )
 
-        embed.add_field(name="Members", inline=False, value=",".join(self.member))
+        embed.add_field(name="🧍‍♂️Members", inline=False, value=",".join(self.member_to_string()))
         embed.add_field(
-            name="Usable balance", inline=True, value=self.available_balance()
+            name="💳Usable balance", inline=True, value=self.available_balance()
         )
         return embed
 
