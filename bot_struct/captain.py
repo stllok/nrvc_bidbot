@@ -27,7 +27,7 @@ class Captain:
     def available_balance(self) -> int:
         """Function to get current usable balabce per captain"""
         # 1600, 1700, 1800, 1900, 2000 for 0, 1, 2, 3, 4, 5 players in captain's team
-        return self.balance - (self.remain_slot() + 1) * DEFAULT_PRICE 
+        return min(self.balance, self.balance - (self.remain_slot() - 1) * DEFAULT_PRICE)
 
     def is_full(self) -> bool:
         """

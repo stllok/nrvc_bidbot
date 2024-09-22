@@ -126,7 +126,7 @@ class Auction(commands.Cog):
         self.message = await self.interactive_channel.send(view=view, embed=embed)
 
     async def bid_action(self, interaction: discord.Interaction, amount: int):
-        print(f"Receive bid action from {interaction.user.name} with bidding {amount}")
+        print(f"[auction] Receive bid action from {interaction.user.name} with bidding {amount}")
         captain = self.get_captains(interaction.user)
 
         current_price = self.item.price if self.item is not None else 0
@@ -216,11 +216,48 @@ class Auction(commands.Cog):
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
     @app_commands.default_permissions(administrator=True)
     async def start(self, interaction: discord.Interaction):
+        self.item = self.random_pop()
+        self.item.price = 0
         self.interactive_channel = interaction.channel
         self.on_bidding.start()
         await interaction.response.send_message(
             "Starting auction", ephemeral=True, delete_after=2
         )
+
+    @app_commands.command(name="start-auction-manually", description="Start the auction")
+    @app_commands.guilds(MY_GUILD_ID_OBJECT)
+    @app_commands.default_permissions(administrator=True)
+    async def start_manaually(self, interaction: discord.Interaction, name: str, amount: int, owner: Member):
+        print(f"Manually call {name} with price {amount}")
+        captain = self.get_captains(owner)
+        if captain is None:
+            return
+        player_idx = -1
+        for i in range(len(self.players)):
+            if self.players[i].player_name != name:
+                continue
+
+            player_idx = i
+            break
+
+        if player_idx == -1:        
+            await interaction.response.send_message(
+                    f"Player not found", ephemeral=True, delete_after=2
+                )
+            
+        item = self.players.pop(player_idx)
+        item.price = amount
+        item.owner = captain
+
+        self.item = item
+
+        self.interactive_channel = interaction.channel
+        self.on_bidding.start()
+        await interaction.response.send_message(
+                f"Starting auction manually with player {name} with {amount}", ephemeral=True, delete_after=2
+            )
+        return
+
 
     @app_commands.command(name="swap-unsold-player", description="Start the auction")
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
@@ -298,8 +335,9 @@ class Auction(commands.Cog):
     #######################
     #   BACKGROUND TASK   #
     #######################
-    @tasks.loop(seconds=0.1)
+    @tasks.loop(seconds=0.2)
     async def on_bidding(self):
+        tmp_price = self.item.price
         if self.item is None:
             self.on_bidding.stop()
             return
@@ -307,21 +345,25 @@ class Auction(commands.Cog):
             return
 
         async with self.bid_lock:
+            if tmp_price != self.item.price:
+                return
             item = self.item
             self.item = None
         print("Item expiried")
 
         if item.is_unsold():
+            print(f"[post-auction] no one buy {item.player_name}")
             await self.interactive_channel.send(
                 f"😭 No one buy **{item.player_name}**..."
             )
             self.unsold_players.append(item)
         else:
+            print(f"[post-auction] {item.owner.owner.name} buy {item.player_name} with ${item.price}")
             # Handle item transition to owner
             item.owner.member.append(item.player_id)
             item.owner.balance -= item.price
             await self.interactive_channel.send(
-                f"🎉 {item.owner.owner.name} just spent {item.price} to buy **{item.player_name}**!"
+                f"🎉 {item.owner.owner.name} just spent **${item.price}** to buy **{item.player_name}**!"
             )
             self.history.push(item.player_id, item.price, item.owner.owner)
 
@@ -335,14 +377,16 @@ class Auction(commands.Cog):
 
     @on_bidding.before_loop
     async def pre_bidding(self):
-        item = self.random_pop()
+        print("[pre-auction] receive auction request")
 
-        if item is None:
+        if self.item is None:
+            print("[pre-auction] no item left in list..")
             # Stop bid when nothing left
-            self.interactive_channel.send("No item left")
+            await self.interactive_channel.send("Auction request received, but no players left")
             self.on_bidding.stop()
-        else:
-            self.item = item
+            return
+            
+        print(f"[pre-auction] {self.item.player_name} pop out!")
 
         # await self.interactive_channel.send(
         #     f"The next auction will be started in <t:{int(time.time()) + BEFORE_BID_START_WAIT}:R>"
@@ -351,11 +395,6 @@ class Auction(commands.Cog):
         self.item.init_expiry()
         await self.broadcast_embed()
         await self.bot.wait_until_ready()
-
-    @on_bidding.after_loop
-    async def post_bidding(self):
-        # Status reset
-        self.item = None
 
 
 class CustomBidMoral(discord.ui.Modal, title="Custom Bid Form"):

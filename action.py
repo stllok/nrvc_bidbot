@@ -15,6 +15,7 @@ class Bidded:
         self.owner = owner
 
     def restore(self, captains: list[Captain], players: list[Item]):
+        
         captain = next(
             iter(filter(lambda captain: captain.owner.name == self.owner, captains)),
             None,
@@ -27,7 +28,7 @@ class Bidded:
         if captain is None:
             raise Exception("Captain not found")
         if player is None:
-            raise Exception("Player not found")
+            raise Exception(f"Player {self.player_id} not found")
         print(
             f"Restoring record of {captain.owner.name} bought {player.player_name} with price {self.price}"
         )
@@ -46,7 +47,6 @@ class AdvancedJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if hasattr(obj, "__jsonencode__"):
             return obj.__jsonencode__()
-
         if isinstance(obj, set):
             return list(obj)
         return json.JSONEncoder.default(self, obj)
