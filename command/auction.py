@@ -214,7 +214,7 @@ class Auction(commands.Cog):
 
     @app_commands.command(name="start-auction", description="Start the auction")
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
-    # @app_commands.default_permissions(administrator=True)
+    @app_commands.default_permissions(administrator=True)
     async def start(self, interaction: discord.Interaction):
         self.interactive_channel = interaction.channel
         self.on_bidding.start()
@@ -271,7 +271,7 @@ class Auction(commands.Cog):
 
     @app_commands.command(name="captains-status", description="Get all captains status")
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
-    # @app_commands.default_permissions(administrator=True)
+    @app_commands.default_permissions(administrator=True)
     async def captains_status(self, interaction: discord.Interaction):
         await interaction.response.send_message(
             content="\n".join(
@@ -285,7 +285,7 @@ class Auction(commands.Cog):
 
     @app_commands.command(name="bid-status", description="Get all captains status")
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
-    # @app_commands.default_permissions(administrator=True)
+    @app_commands.default_permissions(administrator=True)
     async def bid_status(self, interaction: discord.Interaction):
         await interaction.response.send_message(
             f"""
