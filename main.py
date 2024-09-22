@@ -3,19 +3,16 @@ import discord
 from discord.ext import commands
 
 # 導入commands指令模組
-from ossapi import Ossapi
 
+
+from action import ActionHistory
 from bot_struct.item import Item
 from command.auction import Auction
-from command.ping import Ping
-from command.task_test import TaskTest
 from config import (
     CAPTAIN_ROLE_ID,
-    CHANNEL_ID,
-    DISCORD_TOKEN,MY_GUILD_ID,
+    DISCORD_TOKEN,
+    MY_GUILD_ID,
     MY_GUILD_ID_OBJECT,
-    OSUAPI_ID,
-    OSUAPI_SECRET,
     OWNER_USERID,
     PLAYERS,
 )
@@ -26,11 +23,11 @@ from bot_struct.captain import Captain
 intents = discord.Intents.all()
 # command_prefix是前綴符號，可以自由選擇($, #, &...)
 bot = commands.Bot(command_prefix="%", intents=intents)
-osuapi = Ossapi(OSUAPI_ID, OSUAPI_SECRET)
 
 
 # COGS = [Ping(bot), TaskTest(bot)]
 COGS = []
+
 
 # 當機器人完成啟動
 @bot.event
@@ -40,7 +37,7 @@ async def on_ready():
             Captain,
             filter(
                 lambda member: member.get_role(CAPTAIN_ROLE_ID) is not None,
-                (bot.get_guild(MY_GUILD_ID)).members,
+                bot.get_guild(MY_GUILD_ID).members,
             ),
         )
     )
@@ -56,15 +53,20 @@ async def on_ready():
             PLAYERS,
         )
     )
+    history = ActionHistory()
     print("Initialize captain and member complete!")
-    print(f"Captains: {captains}")
-    print(f"Players: {players}")
+    print(f"Captains: {", ".join(map(str,captains))}")
+    print(f"Players: {len(players)}")
+    history.restore(captains, players)
+    print("After restore status:")
+    print(f"Captains: {", ".join(map(str,captains))}")
+    print(f"Players: {len(players)}")
 
-    COGS.append(Auction(bot, players, captains))
+    COGS.append(Auction(bot, players, captains, history))
     for cog in COGS:
         await bot.add_cog(cog)
     print(f"載入 {len(await bot.tree.sync(guild=MY_GUILD_ID_OBJECT))} 個斜線指令")
-    # print(f"目前登入身份 --> {bot.user}")
+    print(f"目前登入身份 --> {bot.user}")
 
 
 @bot.command()

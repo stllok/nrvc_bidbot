@@ -1,11 +1,14 @@
 import random
-import asyncio
-import time
 import discord
 from discord import Member, Message, TextChannel, User, app_commands
 from discord.ext import commands, tasks
 
-from config import BEFORE_BID_START_WAIT, DEFAULT_PRICE, MINIMUM_CALL_PRICE, MY_GUILD_ID_OBJECT
+from action import ActionHistory
+from config import (
+    DEFAULT_PRICE,
+    MINIMUM_CALL_PRICE,
+    MY_GUILD_ID_OBJECT,
+)
 from bot_struct.captain import Captain
 from bot_struct.item import Item
 
@@ -19,11 +22,18 @@ class Auction(commands.Cog):
     captains: list[Captain]
     # Status
     item: Item | None
+    history: ActionHistory
     # Bidding Channel
     interactive_channel: TextChannel | None
     message: Message | None
 
-    def __init__(self, bot: commands.Bot, players: list[Item], captains: list[Captain]):
+    def __init__(
+        self,
+        bot: commands.Bot,
+        players: list[Item],
+        captains: list[Captain],
+        history: ActionHistory,
+    ):
         self.bot = bot
         # List
         self.players = players
@@ -33,6 +43,7 @@ class Auction(commands.Cog):
         self.item = None
         self.interactive_channel = None
         self.message = None
+        self.history = history
 
     def random_pop(self) -> Item | None:
         return (
@@ -51,7 +62,7 @@ class Auction(commands.Cog):
         if self.item is None:
             print("NO ITEM TO BROADCAST!!!")
             return
-        
+
         if self.message is not None:
             await self.message.delete()
 
@@ -74,7 +85,7 @@ class Auction(commands.Cog):
         ]
 
         view = discord.ui.View()
-        for button_setting in buttons_settings[2 if self.item.price == 0 else 0:]:
+        for button_setting in buttons_settings[2 if self.item.price == 0 else 0 :]:
             button = discord.ui.Button(label=button_setting[0])
             button.callback = button_setting[1]
             view.add_item(item=button)
@@ -97,7 +108,10 @@ class Auction(commands.Cog):
 
         conditions = [
             (lambda: captain is None, "You are not the captain"),
-            (lambda: DEFAULT_PRICE > amount, f"Your bidding price below minimum price (expected {DEFAULT_PRICE} actual {amount})"),
+            (
+                lambda: DEFAULT_PRICE > amount,
+                f"Your bidding price below minimum price (expected {DEFAULT_PRICE} actual {amount})",
+            ),
             (lambda: self.item is None, "Auction is not ready yet"),
             (
                 lambda: amount > captain.available_balance(),
@@ -125,7 +139,9 @@ class Auction(commands.Cog):
         self.item.set_owner(amount, captain)
         await self.broadcast_embed()
 
-        await interaction.response.send_message("Success!",ephemeral=True, silent=True, delete_after=1.0)
+        await interaction.response.send_message(
+            "Success!", ephemeral=True, silent=True, delete_after=1.0
+        )
 
     @app_commands.command(
         name="bid-min",
@@ -167,8 +183,10 @@ class Auction(commands.Cog):
     # @app_commands.default_permissions(administrator=True)
     async def start(self, interaction: discord.Interaction):
         self.interactive_channel = interaction.channel
-        # await interaction.response.send_message("Starting auction")
         self.on_bidding.start()
+        await interaction.response.send_message(
+            "Starting auction", ephemeral=True, delete_after=2
+        )
 
     @app_commands.command(name="swap-unsold-player", description="Start the auction")
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
@@ -182,7 +200,7 @@ class Auction(commands.Cog):
         self.players.extend(self.unsold_players)
         self.unsold_players = []
         await interaction.response.send_message("List swapped", ephemeral=True)
-        
+
     @app_commands.command(name="cancel", description="Cancel current auction")
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
     # @app_commands.default_permissions(administrator=True)
@@ -190,7 +208,7 @@ class Auction(commands.Cog):
         await self.interactive_channel.send("Auction canceled by admin")
         self.players.append(self.item)
         self.item = None
-        
+
         await self.message.delete()
         self.message = None
         self.on_bidding.stop()
@@ -252,20 +270,27 @@ class Auction(commands.Cog):
         if not self.item.is_expiry():
             return
 
+        item = self.item
+        self.item = None
         print("Item expiried")
-        if self.item.is_unsold():
-            await self.interactive_channel.send(f"😭 No one buy **{self.item.player_name}**...")
-            self.unsold_players.append(self.item)
+
+        if item.is_unsold():
+            await self.interactive_channel.send(
+                f"😭 No one buy **{item.player_name}**..."
+            )
+            self.unsold_players.append(item)
         else:
             # Handle item transition to owner
-            self.item.owner.member.append(self.item.player_id)
-            self.item.owner.balance -= self.item.price
-            await self.interactive_channel.send(f"🎉 {self.item.owner.owner.name} just spent {self.item.price} to buy **{self.item.player_name}**!")
+            item.owner.member.append(item.player_id)
+            item.owner.balance -= item.price
+            await self.interactive_channel.send(
+                f"🎉 {item.owner.owner.name} just spent {item.price} to buy **{item.player_name}**!"
+            )
+            self.history.push(item.player_id, item.price, item.owner.owner)
 
         # Remove the embedded message and item
         await self.message.delete()
         self.message = None
-        self.item = None
         # Reset everything to start
         # self.on_bidding.restart()
         # Nocy said he want to control it manually
