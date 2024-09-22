@@ -1,3 +1,4 @@
+from asyncio import Lock
 import random
 import discord
 from discord import Member, Message, TextChannel, User, app_commands
@@ -26,6 +27,7 @@ class Auction(commands.Cog):
     # Bidding Channel
     interactive_channel: TextChannel | None
     message: Message | None
+    bid_lock: Lock
 
     def __init__(
         self,
@@ -44,6 +46,7 @@ class Auction(commands.Cog):
         self.interactive_channel = None
         self.message = None
         self.history = history
+        self.bid_lock = Lock()
 
     def random_pop(self) -> Item | None:
         return (
@@ -78,10 +81,30 @@ class Auction(commands.Cog):
                     interaction, MINIMUM_CALL_PRICE + self.item.price
                 ),
             ],
-            ["+50", lambda interact: self.bid_action(interact, 50 + self.item.price)],
-            ["+100", lambda interact: self.bid_action(interact, 100 + self.item.price)],
-            ["+250", lambda interact: self.bid_action(interact, 250 + self.item.price)],
-            ["+500", lambda interact: self.bid_action(interact, 500 + self.item.price)],
+            [
+                "+50",
+                lambda interact: self.bid_action(
+                    interact, 50 + self.item.price if self.item else 0
+                ),
+            ],
+            [
+                "+100",
+                lambda interact: self.bid_action(
+                    interact, 100 + self.item.price if self.item else 0
+                ),
+            ],
+            [
+                "+250",
+                lambda interact: self.bid_action(
+                    interact, 250 + self.item.price if self.item else 0
+                ),
+            ],
+            [
+                "+500",
+                lambda interact: self.bid_action(
+                    interact, 500 + self.item.price if self.item else 0
+                ),
+            ],
         ]
 
         view = discord.ui.View()
@@ -106,6 +129,7 @@ class Auction(commands.Cog):
         print(f"Receive bid action from {interaction.user.name} with bidding {amount}")
         captain = self.get_captains(interaction.user)
 
+        current_price = self.item.price if self.item is not None else 0
         conditions = [
             (lambda: captain is None, "You are not the captain"),
             (
@@ -113,6 +137,15 @@ class Auction(commands.Cog):
                 f"Your bidding price below minimum price (expected {DEFAULT_PRICE} actual {amount})",
             ),
             (lambda: self.item is None, "Auction is not ready yet"),
+            (
+                lambda: amount > captain.available_balance(),
+                f"You don't have enough balance! (Available: {captain.available_balance()})",
+            ),
+            # Avoid race condition on multiple bidding
+            (
+                lambda: current_price != self.item.price,
+                f"Price changed since your action (Price when bid: {current_price}, Current price: {self.item.price})",
+            ),
             (
                 lambda: amount > captain.available_balance(),
                 f"You don't have enough balance! (Available: {captain.available_balance()})",
@@ -127,21 +160,22 @@ class Auction(commands.Cog):
             ),
         ]
 
-        for condition in conditions:
-            if condition[0]():
-                return await interaction.response.send_message(
-                    condition[1], ephemeral=True
-                )
+        async with self.bid_lock:
+            for condition in conditions:
+                if condition[0]():
+                    return await interaction.response.send_message(
+                        condition[1], ephemeral=True
+                    )
 
-        await self.interactive_channel.send(
-            f"📢 **{interaction.user.name}** has called **{amount}**! ({self.item.price} ▶️ {amount})"
-        )
-        self.item.set_owner(amount, captain)
-        await self.broadcast_embed()
+            await self.interactive_channel.send(
+                f"📢 **{interaction.user.name}** has called **{amount}**! ({self.item.price} ▶️ {amount})"
+            )
+            self.item.set_owner(amount, captain)
+            await self.broadcast_embed()
 
-        await interaction.response.send_message(
-            "Success!", ephemeral=True, silent=True, delete_after=1.0
-        )
+            await interaction.response.send_message(
+                "Success!", ephemeral=True, silent=True, delete_after=1.0
+            )
 
     @app_commands.command(
         name="bid-min",
@@ -190,7 +224,7 @@ class Auction(commands.Cog):
 
     @app_commands.command(name="swap-unsold-player", description="Start the auction")
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
-    # @app_commands.default_permissions(administrator=True)
+    @app_commands.default_permissions(administrator=True)
     async def swap_unsold_player(self, interaction: discord.Interaction):
         if self.unsold_players.__len__() == 0:
             return await interaction.response.send_message(
@@ -203,8 +237,10 @@ class Auction(commands.Cog):
 
     @app_commands.command(name="cancel", description="Cancel current auction")
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
-    # @app_commands.default_permissions(administrator=True)
+    @app_commands.default_permissions(administrator=True)
     async def cancel(self, interaction: discord.Interaction):
+        if self.item is None:
+            return await interaction.response.send_message("Auction is not running")
         await self.interactive_channel.send("Auction canceled by admin")
         self.players.append(self.item)
         self.item = None
@@ -213,25 +249,25 @@ class Auction(commands.Cog):
         self.message = None
         self.on_bidding.stop()
 
-    @app_commands.command(
-        name="modify_balance", description="Modify specific captain's balance"
-    )
-    @app_commands.guilds(MY_GUILD_ID_OBJECT)
+    # @app_commands.command(
+    #     name="modify-balance", description="Modify specific captain's balance"
+    # )
+    # @app_commands.guilds(MY_GUILD_ID_OBJECT)
     # @app_commands.default_permissions(administrator=True)
-    async def modify_balance(
-        self, interaction: discord.Interaction, req_captain: Member, amount: int
-    ):
-        captain = self.get_captains(req_captain)
+    # async def modify_balance(
+    #     self, interaction: discord.Interaction, req_captain: Member, amount: int
+    # ):
+    #     captain = self.get_captains(req_captain)
 
-        if captain is None:
-            return await interaction.response.send_message(
-                "You are not captain", ephemeral=True
-            )
+    #     if captain is None:
+    #         return await interaction.response.send_message(
+    #             "You are not captain", ephemeral=True
+    #         )
 
-        captain.balance = amount
-        await interaction.response.send_message(
-            f"Adjusted {captain.owner} balance to {amount}", ephemeral=True
-        )
+    #     captain.balance = amount
+    #     await interaction.response.send_message(
+    #         f"Adjusted {captain.owner} balance to {amount}", ephemeral=True
+    #     )
 
     @app_commands.command(name="captains-status", description="Get all captains status")
     @app_commands.guilds(MY_GUILD_ID_OBJECT)
@@ -253,8 +289,8 @@ class Auction(commands.Cog):
     async def bid_status(self, interaction: discord.Interaction):
         await interaction.response.send_message(
             f"""
-            🥺On queue({len(self.players)}): {", ".join(map(lambda player: player.player_name ,self.players))}
-            😭Unsold({len(self.unsold_players)}): {", ".join(map(lambda player: player.player_name ,self.unsold_players))}
+🥺On queue({len(self.players)}): {", ".join(map(lambda player: f"`{player.player_name}`" ,self.players))}
+😭Unsold({len(self.unsold_players)}): {", ".join(map(lambda player: f"`{player.player_name}`" ,self.unsold_players))}
             """,
             ephemeral=True,
         )
@@ -270,8 +306,9 @@ class Auction(commands.Cog):
         if not self.item.is_expiry():
             return
 
-        item = self.item
-        self.item = None
+        async with self.bid_lock:
+            item = self.item
+            self.item = None
         print("Item expiried")
 
         if item.is_unsold():

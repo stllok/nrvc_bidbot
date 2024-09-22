@@ -20,7 +20,7 @@ class Item:
     price: int
     expiry: int
     owner: Captain | None
-    
+
     def __init__(self, uid: int, sip: int, etx: float, seed: int, name: str) -> None:
         self.player_id = uid
         self.sip = sip
@@ -36,7 +36,7 @@ class Item:
         self.owner = owner
         # Update
         self.expiry = int(time.time()) + AFTER_BID_WAIT
-    
+
     def init_expiry(self):
         self.expiry = int(time.time()) + FIRST_TIME_WAIT
 
@@ -56,7 +56,10 @@ class Item:
         embed.add_field(name="📃Qualify Seed", value=self.seed)
         embed.add_field(name="📊ETX Rating", value=self.etx)
         embed.add_field(name="📊Skill Issue Rating", value=self.sip)
-        embed.add_field(name="🙋‍♂️Current Caller", value=self.owner.owner.name if self.owner is not None else None)
+        embed.add_field(
+            name="🙋‍♂️Current Caller",
+            value=self.owner.owner.name if self.owner is not None else None,
+        )
         embed.set_image(url=f"https://a.ppy.sh/{self.player_id}")
         embed.set_footer(
             text="👉Use `/bid` or `/bid-min` or below button shortcut to call price!"
